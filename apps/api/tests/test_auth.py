@@ -60,3 +60,12 @@ def test_missing_or_invalid_token_is_rejected():
     with TestClient(app) as client:
         assert client.get("/api/v1/auth/me").status_code == 401
         assert client.get("/api/v1/auth/me", headers={"Authorization": "Bearer invalid"}).status_code == 401
+
+
+def test_public_registration_is_not_available():
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/auth/register",
+            json={"email": "attacker@example.com", "password": "correct-horse-battery", "role": "state_admin"},
+        )
+        assert response.status_code == 404

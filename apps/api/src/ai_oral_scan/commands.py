@@ -1,8 +1,11 @@
 import argparse
+from pathlib import Path
 
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import select
 
-from ai_oral_scan.db import Base, SessionLocal, engine
+from ai_oral_scan.db import SessionLocal
 from ai_oral_scan.models import User
 from ai_oral_scan.security import hash_password
 
@@ -16,7 +19,8 @@ def create_user() -> None:
     args = parser.parse_args()
     if len(args.password) < 12:
         parser.error("password must have at least 12 characters")
-    Base.metadata.create_all(bind=engine)
+    migration_config = Config(str(Path(__file__).resolve().parents[2] / "alembic.ini"))
+    command.upgrade(migration_config, "head")
     with SessionLocal() as db:
         email = args.email.lower()
         if db.scalar(select(User).where(User.email == email)):

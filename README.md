@@ -18,13 +18,14 @@ Docker Desktop, Python 3.11+, Node.js 20.9+ e Flutter 3.22+ (Android SDK para co
 
 1. Copie `.env.example` para `.env` e substitua `JWT_SECRET` por um segredo aleatório local. Nunca reutilize credenciais de produção.
 2. Inicie o banco: `docker compose up -d db`.
-3. API:
+3. API (aplique primeiro as migrações versionadas):
 
    ```powershell
    cd apps/api
    python -m venv .venv
    .\.venv\Scripts\Activate.ps1
    pip install -e '.[dev]'
+   alembic upgrade head
    uvicorn ai_oral_scan.main:app --reload
    ```
 
