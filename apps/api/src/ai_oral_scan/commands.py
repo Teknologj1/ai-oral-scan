@@ -6,7 +6,7 @@ from alembic.config import Config
 from sqlalchemy import select
 
 from ai_oral_scan.db import SessionLocal
-from ai_oral_scan.models import User
+from ai_oral_scan.models import RoleAssignment, User
 from ai_oral_scan.security import hash_password
 
 
@@ -25,7 +25,17 @@ def create_user() -> None:
         email = args.email.lower()
         if db.scalar(select(User).where(User.email == email)):
             parser.error("account already exists")
-        db.add(User(email=email, role=args.role, scope_id=args.scope_id, password_hash=hash_password(args.password)))
+        scope_type = {
+            "state_admin": "state",
+            "municipal_manager": "municipality",
+            "analyst": "municipality",
+            "field_operator": "school",
+            "dentist": "school",
+        }[args.role]
+        user = User(email=email, role=args.role, scope_id=args.scope_id, password_hash=hash_password(args.password))
+        db.add(user)
+        db.flush()
+        db.add(RoleAssignment(user_id=user.id, role=args.role, scope_type=scope_type, scope_id=args.scope_id))
         db.commit()
     print(f"Created {args.role} account for {email}")
 

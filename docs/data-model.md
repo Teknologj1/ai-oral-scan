@@ -18,3 +18,7 @@
 ## Migrações
 
 Aplicar com `alembic upgrade head` em `apps/api`. Não usar `Base.metadata.create_all()` na aplicação. Toda alteração futura de schema deve gerar migração e teste de upgrade em banco temporário.
+
+## Acesso e sessões
+
+`role_assignments` permite atribuir papel por escopo `state`, `municipality` ou `school`; contas sem atribuição ativa não autenticam. `auth_sessions` armazena hash do refresh token, identificador do access token atual, expiração e revogação. A renovação troca refresh token e `jti`, invalidando o access anterior; logout revoga a sessão. O migration inicial de autorização converte os papéis/escope antigos para atribuições explícitas.

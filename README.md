@@ -39,7 +39,7 @@ Docker Desktop, Python 3.11+, Node.js 20.9+ e Flutter 3.22+ (Android SDK para co
 5. Web: em `apps/web`, execute `npm install` e `npm run dev`. Configure `NEXT_PUBLIC_API_URL` se a API não estiver em `http://localhost:8000`.
 6. Campo: em `apps/field`, execute `flutter pub get` e `flutter run` com dispositivo/emulador Android.
 
-API docs locais: `http://localhost:8000/docs`. Endpoints iniciais: `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `GET /api/v1/admin/ping`.
+API docs locais: `http://localhost:8000/docs`. Endpoints iniciais: `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/me`, `GET /api/v1/schools/{school_id}`.
 
 ## Testes e verificações
 
@@ -47,4 +47,4 @@ API docs locais: `http://localhost:8000/docs`. Endpoints iniciais: `POST /api/v1
 - Web: `cd apps/web; npm install; npm run lint; npm run build`
 - Campo: `cd apps/field; flutter test; flutter analyze`
 
-Login usa JWT curto e senha Argon2. Provisionamento é feito por comando local, nunca por cadastro público. Logout/revogação de token e MFA ainda não fazem parte deste incremento. Antes de qualquer ambiente compartilhado, configurar segredo forte fora do repositório e substituir o SQLite de fallback por PostgreSQL.
+Login usa access JWT curto e refresh token rotativo com hash persistido; logout revoga a sessão. Senhas usam Argon2 e contas são provisionadas localmente, sem cadastro público. MFA ainda não faz parte deste incremento. Antes de qualquer ambiente compartilhado, configurar segredo forte fora do repositório e substituir o SQLite de fallback por PostgreSQL.

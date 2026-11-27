@@ -5,7 +5,7 @@ from sqlalchemy.pool import StaticPool
 
 from ai_oral_scan.db import Base, get_db
 from ai_oral_scan.main import app
-from ai_oral_scan.models import User
+from ai_oral_scan.models import Municipality, RoleAssignment, School, User
 from ai_oral_scan.security import hash_password
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -25,8 +25,22 @@ def setup_function():
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     with TestingSession() as db:
-        db.add(User(email="dentist@example.com", role="dentist", scope_id="municipality-1", password_hash=hash_password("correct-horse-battery")))
-        db.add(User(email="inactive@example.com", role="state_admin", scope_id="state", is_active=False, password_hash=hash_password("correct-horse-battery")))
+        db.add_all(
+            [
+                Municipality(id="municipality-1", ibge_code="1234567", name="Município Um", state_uf="SP"),
+                Municipality(id="municipality-2", ibge_code="7654321", name="Município Dois", state_uf="SP"),
+                School(id="school-1", municipality_id="municipality-1", name="Escola Um"),
+                School(id="school-2", municipality_id="municipality-2", name="Escola Dois"),
+                User(id="user-dentist", email="dentist@example.com", role="dentist", scope_id="municipality-1", password_hash=hash_password("correct-horse-battery")),
+                User(id="user-inactive", email="inactive@example.com", role="state_admin", scope_id="state", is_active=False, password_hash=hash_password("correct-horse-battery")),
+            ]
+        )
+        db.add_all(
+            [
+                RoleAssignment(user_id="user-dentist", role="dentist", scope_type="school", scope_id="school-1"),
+                RoleAssignment(user_id="user-inactive", role="state_admin", scope_type="state", scope_id="*"),
+            ]
+        )
         db.commit()
 
 
@@ -69,3 +83,37 @@ def test_public_registration_is_not_available():
             json={"email": "attacker@example.com", "password": "correct-horse-battery", "role": "state_admin"},
         )
         assert response.status_code == 404
+
+
+def test_refresh_rotates_tokens_and_revokes_the_previous_access_token():
+    with TestClient(app) as client:
+        initial = client.post("/api/v1/auth/login", json={"email": "dentist@example.com", "password": "correct-horse-battery"}).json()
+        rotated_response = client.post("/api/v1/auth/refresh", json={"refresh_token": initial["refresh_token"]})
+        assert rotated_response.status_code == 200
+        rotated = rotated_response.json()
+        assert rotated["refresh_token"] != initial["refresh_token"]
+        old_access = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {initial['access_token']}"})
+        current_access = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {rotated['access_token']}"})
+        old_refresh = client.post("/api/v1/auth/refresh", json={"refresh_token": initial["refresh_token"]})
+        assert old_access.status_code == 401
+        assert current_access.status_code == 200
+        assert old_refresh.status_code == 401
+
+
+def test_logout_revokes_access_and_refresh_tokens():
+    with TestClient(app) as client:
+        tokens = client.post("/api/v1/auth/login", json={"email": "dentist@example.com", "password": "correct-horse-battery"}).json()
+        headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+        assert client.post("/api/v1/auth/logout", headers=headers).status_code == 204
+        assert client.get("/api/v1/auth/me", headers=headers).status_code == 401
+        assert client.post("/api/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]}).status_code == 401
+
+
+def test_school_access_is_limited_to_assigned_territory():
+    with TestClient(app) as client:
+        tokens = client.post("/api/v1/auth/login", json={"email": "dentist@example.com", "password": "correct-horse-battery"}).json()
+        headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+        own_school = client.get("/api/v1/schools/school-1", headers=headers)
+        other_school = client.get("/api/v1/schools/school-2", headers=headers)
+        assert own_school.status_code == 200
+        assert other_school.status_code == 404
