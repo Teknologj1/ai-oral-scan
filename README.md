@@ -18,17 +18,32 @@ Docker Desktop, Python 3.11+, Node.js 20.9+ e Flutter 3.22+ (Android SDK para co
 
 1. Copie `.env.example` para `.env` e substitua `JWT_SECRET` por um segredo aleatório local. Nunca reutilize credenciais de produção.
 2. Inicie o banco: `docker compose up -d db`.
-3. API: em `apps/api`, crie e ative um ambiente virtual, execute `pip install -e '.[dev]'` e `uvicorn ai_oral_scan.main:app --reload`.
-4. Provisione uma conta local com `python -m ai_oral_scan.commands admin@example.test state_admin state --password 'replace-this-local-password'`. Cadastro público está desativado.
-5. Web: em `apps/web`, execute `npm install` e `npm run dev`.
-6. Campo: em `apps/field`, execute `flutter pub get` e `flutter run` em dispositivo/emulador Android.
+3. API:
+
+   ```powershell
+   cd apps/api
+   python -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+   pip install -e '.[dev]'
+   uvicorn ai_oral_scan.main:app --reload
+   ```
+
+4. Em outro terminal, no diretório `apps/api`, provisione usuário local (a conta inicial não é aberta por endpoint público):
+
+   ```powershell
+   $env:DATABASE_URL='postgresql+psycopg://ai_oral_scan:change-me-local-only@localhost:5432/ai_oral_scan'
+   python -m ai_oral_scan.commands admin@example.test state_admin state --password 'replace-this-local-password'
+   ```
+
+5. Web: em `apps/web`, execute `npm install` e `npm run dev`. Configure `NEXT_PUBLIC_API_URL` se a API não estiver em `http://localhost:8000`.
+6. Campo: em `apps/field`, execute `flutter pub get` e `flutter run` com dispositivo/emulador Android.
 
 API docs locais: `http://localhost:8000/docs`. Endpoints iniciais: `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `GET /api/v1/admin/ping`.
 
-## Testes
+## Testes e verificações
 
-- API: `pytest` em `apps/api`.
-- Web: `npm run lint` e `npm run build` em `apps/web`.
-- Campo: `flutter test` e `flutter analyze` em `apps/field`.
+- API: `cd apps/api; pip install -e '.[dev]'; pytest`
+- Web: `cd apps/web; npm install; npm run lint; npm run build`
+- Campo: `cd apps/field; flutter test; flutter analyze`
 
-Não há logout com revogação de token ou MFA neste incremento. Antes de ambientes compartilhados, configure segredo forte fora do repositório e use PostgreSQL. Nunca use dados reais de estudantes no desenvolvimento.
+Login usa JWT curto e senha Argon2. Provisionamento é feito por comando local, nunca por cadastro público. Logout/revogação de token e MFA ainda não fazem parte deste incremento. Antes de qualquer ambiente compartilhado, configurar segredo forte fora do repositório e substituir o SQLite de fallback por PostgreSQL.
